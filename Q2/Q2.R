@@ -1,17 +1,25 @@
 
 library(plyr)
+library(dplyr)
+library(tidyr)
+library(data.table)
 
+#correct sig fig
 options(digits=10)
 
-setwd("/Users/jorie/Google Drive/DataScience/IncubatorProject/Q2/")
-#housingdata <-read.csv(paste("Historic_Secured_Property_Tax_Rolls.csv", sep =""))
- 
+#grab the data
+setwd("/Users/jorie/Google Drive/DataScience/IncubatorProject/Challange/Q2/data/")
+housingdata <- fread("Historic_Secured_Property_Tax_Rolls.csv",header = T,)
+housingdata <- read.csv("Historic_Secured_Property_Tax_Rolls.csv",header = T,)
 
-#In order to avoid biasing the results towards properties which are assessed more often, 
-#consider only the latest assessment for each property, unless otherwise specified.
+#Grab only data from the latest assessment  
+dt.housing <- data.table(housingdata, key="Block.and.Lot.Number")
+#grab the subset .SD of data that has max fiscal year 
+dt2.housing <- dt.housing[, .SD[Closed.Roll.Fiscal.Year %in% max(Closed.Roll.Fiscal.Year)], by=Block.and.Lot.Number] 
+c.housing<- data.table(dt2.housing,key="Block.and.Lot.Number")
 
-#Grab only the latest data 
-currentHousingData 
+#check that we have the right number of plots 
+length(unique(housingdata$Block.and.Lot.Number)) == dim(c.housing)[1]
 
 
 # ---- Question A --------
@@ -28,17 +36,35 @@ classCountRatio <- max(classCount$freq)/sum(classCount$freq)  #0.4707253227
 #Calculate the average improvement value (using only non-zero assessments) in each neighborhood. 
 #What is the difference between the greatest and least average values?
 
+as.numeric(c.housing$Closed.Roll.Assessed.Improvement.Value) -> c.housing$Closed.Roll.Assessed.Improvement.Value
+c.housing.nonzero <- c.housing[,.SD[c.housing$Closed.Roll.Assessed.Improvement.Value!=0]]
+means.neigh<- c.housing.nonzero[, mean(Closed.Roll.Assessed.Improvement.Value), by= Neighborhood.Code.Definition]
+max(means.neigh$V1)-min(means.neigh$V1) #5,085,780.383
 
-
-
-# ---- 
+# ---- Question C -----
 #What is the median assessed improvement value, considering only non-zero assessments? 
 #Consider only the latest assessment value for each property, which is uniquely identified by the "Block and Lot Number" column.
+median.house <- c.housing.nonzero[, median(Closed.Roll.Assessed.Improvement.Value,na.rm = T)]  # 209244.5
+
 
 # ---- 
 #We can use the property locations to estimate the areas of the neighborhoods. 
 #Represent each as an ellipse with semi-axes given by a single standard deviation of the longitude and latitude. 
 #What is the area, in square kilometers, of the largest neighborhood measured in this manner? Be sure to filter out invalid coordinates.
+
+#Area = Pi * A * B ,
+
+#get the lat and long out 
+as.character(c.housing$Location) -> c.housing$Location
+c.housing$Location <- gsub(c.housing$Location, pattern = "\\(",replacement = "")
+c.housing$Location <- gsub(c.housing$Location, pattern = "\\)",replacement = "")
+locData <- separate(data = c.housing, col = Location, into = c("Long","Lat"),sep = ",")
+sdLong <- sd(locData$Long,na.rm = T)
+sdLat <- sd(locData$Lat,na.rm = T)
+
+
+#convert to kilometers 
+
 
 # ----
 #Considering only properties with non-zero numbers of bedrooms and units, calculate the average number of bedrooms per unit in each zip code. 
